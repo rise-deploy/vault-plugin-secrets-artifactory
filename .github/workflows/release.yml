@@ -7,15 +7,26 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.base_ref == 'refs/heads/master'
+    environment: release
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Unshallow
         run: git fetch --prune --unshallow
+      - name: Validate release tag
+        run: |
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rise\.[0-9]+$ ]]; then
+            echo "Invalid release tag: ${GITHUB_REF_NAME}"
+            echo "Expected format: vMAJOR.MINOR.PATCH-rise.NUMBER, for example v1.8.9-rise.1"
+            exit 1
+          fi
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -29,7 +40,7 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: ${{ github.event.inputs.tag }}
+          version: latest
           args: release --clean
         env:
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
