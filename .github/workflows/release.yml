@@ -1,11 +1,11 @@
-# This GitHub action can publish assets for release when a tag is created.
-# Currently its setup to run on any tag that matches the pattern "v*" (ie. v0.1.0).
+# This GitHub action publishes assets when a fork release tag is created.
+# Release tags must match the pattern "vMAJOR.MINOR.PATCH-rise.NUMBER".
 #
 name: release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*-rise.*'
 
 permissions:
   contents: write
