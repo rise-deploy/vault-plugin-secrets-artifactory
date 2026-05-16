@@ -3,14 +3,11 @@ package artifactory
 import (
 	"context"
 	"errors"
-	"regexp"
 	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
-
-var GroupPermissionScopeRegex = regexp.MustCompile(`^applied-permissions\/groups:.+$`)
 
 func (b *backend) pathTokenCreate() *framework.Path {
 	return &framework.Path{
@@ -30,7 +27,7 @@ func (b *backend) pathTokenCreate() *framework.Path {
 			},
 			"scope": {
 				Type:        framework.TypeString,
-				Description: `Override the scope for this access token. Limited to group scope only: 'applied-permissions/groups:<group-name>[,<group-name>...]'. Only applicable when config field 'allow_scope_override' is set to 'true'.`,
+				Description: `Override the scope for this access token. Only applicable when config/admin allow_scope_override permits it and the requested scope matches the configured allowlists.`,
 			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -149,16 +146,13 @@ func (b *backend) pathTokenCreatePerform(ctx context.Context, req *logical.Reque
 		role.ExpiresIn = maxLeaseTTL
 	}
 
-	if config.AllowScopeOverride {
-		scope := data.Get("scope").(string)
-		if len(scope) != 0 {
-			match := GroupPermissionScopeRegex.MatchString(scope)
-			if !match {
-				return logical.ErrorResponse("provided scope is invalid"), errors.New("provided scope is invalid")
-			}
-			//use the overridden scope rather than role default
-			role.Scope = scope
+	scope := data.Get("scope").(string)
+	if len(scope) != 0 {
+		if err := config.authorizeScopeOverride(scope, role.AllowScopeOverride, role.AllowedScopes); err != nil {
+			return logical.ErrorResponse("provided scope is invalid"), err
 		}
+		//use the overridden scope rather than role default
+		role.Scope = scope
 	}
 
 	resp, err := b.CreateToken(config.baseConfiguration, *role)

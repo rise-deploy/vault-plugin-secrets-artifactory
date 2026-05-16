@@ -54,7 +54,7 @@ func (b *backend) pathUserTokenCreate() *framework.Path {
 			},
 			"scope": {
 				Type:        framework.TypeString,
-				Description: `Override the scope (default: 'applied-permissions/user') for this access token. Limited to group scope only: 'applied-permissions/groups:<group-name>[,<group-name>...]'.`,
+				Description: `Override the scope (default: 'applied-permissions/user') for this access token. Only applicable when config/admin allow_scope_override permits it and the requested scope matches the configured allowlists.`,
 			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -183,16 +183,13 @@ func (b *backend) pathUserTokenCreatePerform(ctx context.Context, req *logical.R
 		role.Description = value.(string)
 	}
 
-	if adminConfig.AllowScopeOverride {
-		scope := data.Get("scope").(string)
-		if len(scope) != 0 {
-			match := GroupPermissionScopeRegex.MatchString(scope)
-			if !match {
-				return logical.ErrorResponse("provided scope is invalid"), errors.New("provided scope is invalid")
-			}
-			//use the overridden scope rather than role default
-			role.Scope = scope
+	scope := data.Get("scope").(string)
+	if len(scope) != 0 {
+		if err := adminConfig.authorizeScopeOverride(scope, userTokenConfig.AllowScopeOverride, userTokenConfig.AllowedScopes); err != nil {
+			return logical.ErrorResponse("provided scope is invalid"), err
 		}
+		//use the overridden scope rather than role default
+		role.Scope = scope
 	}
 
 	resp, err := b.CreateToken(baseConfig, role)
