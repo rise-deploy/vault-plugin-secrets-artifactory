@@ -186,7 +186,7 @@ func (b *backend) pathUserTokenCreatePerform(ctx context.Context, req *logical.R
 	scope := data.Get("scope").(string)
 	if len(scope) != 0 {
 		if err := adminConfig.authorizeScopeOverride(scope, userTokenConfig.AllowScopeOverride, userTokenConfig.AllowedScopes); err != nil {
-			return logical.ErrorResponse("provided scope is invalid"), err
+			return logical.ErrorResponse(err.Error()), err
 		}
 		//use the overridden scope rather than role default
 		role.Scope = scope

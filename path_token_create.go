@@ -149,7 +149,7 @@ func (b *backend) pathTokenCreatePerform(ctx context.Context, req *logical.Reque
 	scope := data.Get("scope").(string)
 	if len(scope) != 0 {
 		if err := config.authorizeScopeOverride(scope, role.AllowScopeOverride, role.AllowedScopes); err != nil {
-			return logical.ErrorResponse("provided scope is invalid"), err
+			return logical.ErrorResponse(err.Error()), err
 		}
 		//use the overridden scope rather than role default
 		role.Scope = scope
