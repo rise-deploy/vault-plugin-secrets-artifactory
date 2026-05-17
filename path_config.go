@@ -51,7 +51,7 @@ func (b *backend) pathConfig() *framework.Path {
 			},
 			"default_allowed_scopes": {
 				Type:        framework.TypeString,
-				Description: "Optional. JSON array of scope glob patterns used when a role/user has no allowed_scopes configured. Defaults to [\"applied-permissions/groups:*\"]",
+				Description: "Optional. JSON array of scope glob patterns checked against the requested scope when a token request includes a scope override and the role/user has no allowed_scopes configured. Has no effect on token requests that do not include a scope override. Defaults to [\"applied-permissions/groups:*\"]",
 			},
 			"revoke_on_delete": {
 				Type:        framework.TypeBool,
@@ -92,8 +92,10 @@ An optional "bypass_artifactory_tls_verification" parameter will enable bypassin
 
 An optional "allow_scope_override" parameter controls requested scope overrides. Valid values are "disabled", "global",
 and "opt-in"; boolean true maps to "global" and boolean false maps to "disabled". The optional "default_allowed_scopes"
-parameter is a JSON array of scope glob patterns used when a role or user-token configuration has no allowed_scopes.
-This is an advanced option that must have more sophisticated Vault policies. Please see README for an example.
+parameter is a JSON array of scope glob patterns checked against the requested scope when a token request includes a
+scope override and the role or user-token configuration has no allowed_scopes set. It has no effect on token requests
+that do not include a scope override. This is an advanced option that must have more sophisticated Vault policies.
+Please see README for an example.
 
 No renewals or new tokens will be issued if the backend configuration (config/admin) is deleted.
 `,
