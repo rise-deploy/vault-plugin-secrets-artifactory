@@ -180,13 +180,10 @@ func (b *backend) pathConfigUpdate(ctx context.Context, req *logical.Request, da
 		config.BypassArtifactoryTLSVerification = val.(bool)
 	}
 
-	if val, ok := data.GetOk("allow_scope_override"); ok {
+	if _, ok := data.GetOk("allow_scope_override"); ok {
 		mode, err := parseScopeOverrideMode(data.Raw["allow_scope_override"])
 		if err != nil {
 			return logical.ErrorResponse(err.Error()), err
-		}
-		if val.(string) == "" {
-			mode = scopeOverrideDisabled
 		}
 		config.AllowScopeOverride = mode
 	}

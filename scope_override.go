@@ -122,7 +122,7 @@ func (c adminConfiguration) scopeOverrideMode() scopeOverrideMode {
 }
 
 func (c adminConfiguration) effectiveDefaultAllowedScopes() []string {
-	if len(c.DefaultAllowedScopes) > 0 {
+	if c.DefaultAllowedScopes != nil {
 		return c.DefaultAllowedScopes
 	}
 	return append([]string(nil), defaultAllowedScopes...)
@@ -203,7 +203,7 @@ func (c adminConfiguration) authorizeScopeOverride(scope string, enabled bool, a
 	}
 
 	effectiveAllowedScopes := allowedScopes
-	if len(effectiveAllowedScopes) == 0 {
+	if effectiveAllowedScopes == nil {
 		effectiveAllowedScopes = c.effectiveDefaultAllowedScopes()
 	}
 

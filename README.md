@@ -280,8 +280,9 @@ vault write artifactory/config/admin \
 ```
 
 `allow_scope_override` accepts `disabled`, `global`, or `opt-in`. For backwards compatibility,
-`true` is treated as `global` and `false` is treated as `disabled`. When unset, the default
-scope override allowlist permits only `applied-permissions/groups:*` overrides.
+`true` is treated as `global` and `false` is treated as `disabled`. When overrides are enabled
+and no custom allowlist is configured, the built-in default allowlist permits only
+`applied-permissions/groups:*` overrides.
 
 ## Usage
 
