@@ -66,6 +66,15 @@ func (b *backend) pathConfigUserToken() *framework.Path {
 				Type:        framework.TypeString,
 				Description: `Optional. Default token description to set in Artifactory for issued user access tokens.`,
 			},
+			"allow_scope_override": {
+				Type:        framework.TypeBool,
+				Default:     false,
+				Description: `Optional. Allow this user token configuration to override scope when config/admin allow_scope_override is set to 'opt-in'. Ignored when config/admin is set to 'global'.`,
+			},
+			"allowed_scopes": {
+				Type:        framework.TypeString,
+				Description: `Optional. JSON array of scope glob patterns allowed for this user token configuration's requested scope overrides.`,
+			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
@@ -91,6 +100,8 @@ type userTokenConfiguration struct {
 	DefaultTTL            time.Duration `json:"default_ttl,omitempty"`
 	MaxTTL                time.Duration `json:"max_ttl,omitempty"`
 	DefaultDescription    string        `json:"default_description,omitempty"`
+	AllowScopeOverride    bool          `json:"allow_scope_override,omitempty"`
+	AllowedScopes         []string      `json:"allowed_scopes"`
 }
 
 func (c *userTokenConfiguration) RefreshAccessToken(ctx context.Context, req *logical.Request, username string, b *backend, adminBaseConfig baseConfiguration) error {
@@ -255,6 +266,18 @@ func (b *backend) pathConfigUserTokenUpdate(ctx context.Context, req *logical.Re
 		userTokenConfig.DefaultDescription = val.(string)
 	}
 
+	if val, ok := data.GetOk("allow_scope_override"); ok {
+		userTokenConfig.AllowScopeOverride = val.(bool)
+	}
+
+	if _, ok := data.GetOk("allowed_scopes"); ok {
+		allowedScopes, err := parseAllowedScopes("allowed_scopes", data.Raw["allowed_scopes"])
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), err
+		}
+		userTokenConfig.AllowedScopes = allowedScopes
+	}
+
 	if userTokenConfig.AccessToken != "" {
 		go b.sendUsage(userTokenConfig.baseConfiguration, "pathConfigUserTokenUpdate")
 
@@ -325,6 +348,8 @@ func (b *backend) pathConfigUserTokenRead(ctx context.Context, req *logical.Requ
 		"default_ttl":             userTokenConfig.DefaultTTL.Seconds(),
 		"max_ttl":                 userTokenConfig.MaxTTL.Seconds(),
 		"default_description":     userTokenConfig.DefaultDescription,
+		"allow_scope_override":    userTokenConfig.AllowScopeOverride,
+		"allowed_scopes":          userTokenConfig.AllowedScopes,
 	}
 
 	// Optionally include token info if it parses properly

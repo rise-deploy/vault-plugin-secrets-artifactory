@@ -66,6 +66,15 @@ func (b *backend) pathRoles() *framework.Path {
 				Type:        framework.TypeDurationSecond,
 				Description: `Maximum TTL that an access token can be renewed for. If unset, uses the backend's max_ttl. Cannot exceed backend's max_ttl.`,
 			},
+			"allow_scope_override": {
+				Type:        framework.TypeBool,
+				Default:     false,
+				Description: `Optional. Allow this role to override scope when config/admin allow_scope_override is set to 'opt-in'. Ignored when config/admin is set to 'global'.`,
+			},
+			"allowed_scopes": {
+				Type:        framework.TypeString,
+				Description: `Optional. JSON array of scope glob patterns allowed for this role's requested scope overrides.`,
+			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.ReadOperation: &framework.PathOperation{
@@ -100,6 +109,8 @@ type artifactoryRole struct {
 	IncludeReferenceToken bool          `json:"include_reference_token"`
 	DefaultTTL            time.Duration `json:"default_ttl,omitempty"`
 	MaxTTL                time.Duration `json:"max_ttl,omitempty"`
+	AllowScopeOverride    bool          `json:"allow_scope_override,omitempty"`
+	AllowedScopes         []string      `json:"allowed_scopes"`
 	RefreshToken          string        `json:"-"`
 	ExpiresIn             time.Duration `json:"-"`
 }
@@ -185,6 +196,18 @@ func (b *backend) pathRoleWrite(ctx context.Context, req *logical.Request, data 
 		role.MaxTTL = time.Duration(value.(int)) * time.Second
 	}
 
+	if value, ok := data.GetOk("allow_scope_override"); ok {
+		role.AllowScopeOverride = value.(bool)
+	}
+
+	if _, ok := data.GetOk("allowed_scopes"); ok {
+		allowedScopes, err := parseAllowedScopes("allowed_scopes", data.Raw["allowed_scopes"])
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), err
+		}
+		role.AllowedScopes = allowedScopes
+	}
+
 	if role.Scope == "" {
 		return logical.ErrorResponse("missing scope"), nil
 	}
@@ -265,6 +288,8 @@ func (b *backend) roleToMap(roleName string, role artifactoryRole) (roleMap map[
 		"max_ttl":                 role.MaxTTL.Seconds(),
 		"refreshable":             role.Refreshable,
 		"include_reference_token": role.IncludeReferenceToken,
+		"allow_scope_override":    role.AllowScopeOverride,
+		"allowed_scopes":          role.AllowedScopes,
 	}
 
 	// Optional Attributes

@@ -52,7 +52,30 @@ func (e *accTestEnv) PathConfigUpdateBypassArtifactoryTLSVerification(t *testing
 }
 
 func (e *accTestEnv) PathConfigUpdateAllowScopeOverride(t *testing.T) {
-	e.pathConfigUpdateBooleanField(t, "allow_scope_override")
+	e.UpdateConfigAdmin(t, testData{
+		"allow_scope_override": true,
+	})
+	data := e.ReadConfigAdmin(t)
+	assert.Equal(t, scopeOverrideGlobal, data["allow_scope_override"])
+
+	e.UpdateConfigAdmin(t, testData{
+		"allow_scope_override": false,
+	})
+	data = e.ReadConfigAdmin(t)
+	assert.Equal(t, scopeOverrideDisabled, data["allow_scope_override"])
+
+	e.UpdateConfigAdmin(t, testData{
+		"allow_scope_override": "opt-in",
+	})
+	data = e.ReadConfigAdmin(t)
+	assert.Equal(t, scopeOverrideOptIn, data["allow_scope_override"])
+
+	resp, err := e.update(configAdminPath, testData{
+		"allow_scope_override": "Sure, why not",
+	})
+	assert.NotNil(t, resp)
+	assert.Contains(t, resp.Data["error"], "invalid allow_scope_override")
+	assert.Error(t, err)
 }
 
 func (e *accTestEnv) pathConfigUpdateBooleanField(t *testing.T, fieldName string) {

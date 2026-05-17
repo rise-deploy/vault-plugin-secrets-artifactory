@@ -45,9 +45,13 @@ func (b *backend) pathConfig() *framework.Path {
 				Description: "Optional. Bypass certification verification for TLS connection with Artifactory. Default to `false`.",
 			},
 			"allow_scope_override": {
-				Type:        framework.TypeBool,
-				Default:     false,
-				Description: "Optional. Determine if scoped tokens should be allowed. This is an advanced configuration option. Default to `false`.",
+				Type:        framework.TypeString,
+				Default:     string(scopeOverrideDisabled),
+				Description: "Optional. Determine if scope overrides should be allowed. Valid values are 'disabled', 'global', and 'opt-in'. Boolean true maps to 'global'; false maps to 'disabled'. Default to `disabled`.",
+			},
+			"default_allowed_scopes": {
+				Type:        framework.TypeString,
+				Description: "Optional. JSON array of scope glob patterns checked against the requested scope when a token request includes a scope override and the role/user has no allowed_scopes configured. Has no effect on token requests that do not include a scope override. Defaults to [\"applied-permissions/groups:*\"]",
 			},
 			"revoke_on_delete": {
 				Type:        framework.TypeBool,
@@ -86,8 +90,12 @@ usernames if a static one is not provided.
 
 An optional "bypass_artifactory_tls_verification" parameter will enable bypassing the TLS connection verification with Artifactory.
 
-An optional "allow_scope_override" parameter will enable issuing scoped tokens with Artifactory. This is an advanced option that must
-have more sophisticated Vault policies. Please see README for an example.
+An optional "allow_scope_override" parameter controls requested scope overrides. Valid values are "disabled", "global",
+and "opt-in"; boolean true maps to "global" and boolean false maps to "disabled". The optional "default_allowed_scopes"
+parameter is a JSON array of scope glob patterns checked against the requested scope when a token request includes a
+scope override and the role or user-token configuration has no allowed_scopes set. It has no effect on token requests
+that do not include a scope override. This is an advanced option that must have more sophisticated Vault policies.
+Please see README for an example.
 
 No renewals or new tokens will be issued if the backend configuration (config/admin) is deleted.
 `,
@@ -96,10 +104,11 @@ No renewals or new tokens will be issued if the backend configuration (config/ad
 
 type adminConfiguration struct {
 	baseConfiguration
-	UsernameTemplate                 string `json:"username_template,omitempty"`
-	BypassArtifactoryTLSVerification bool   `json:"bypass_artifactory_tls_verification,omitempty"`
-	AllowScopeOverride               bool   `json:"allow_scope_override,omitempty"`
-	RevokeOnDelete                   bool   `json:"revoke_on_delete,omitempty"`
+	UsernameTemplate                 string            `json:"username_template,omitempty"`
+	BypassArtifactoryTLSVerification bool              `json:"bypass_artifactory_tls_verification,omitempty"`
+	AllowScopeOverride               scopeOverrideMode `json:"allow_scope_override,omitempty"`
+	DefaultAllowedScopes             []string          `json:"default_allowed_scopes"`
+	RevokeOnDelete                   bool              `json:"revoke_on_delete,omitempty"`
 }
 
 // fetchAdminConfiguration will return nil,nil if there's no configuration
@@ -173,8 +182,20 @@ func (b *backend) pathConfigUpdate(ctx context.Context, req *logical.Request, da
 		config.BypassArtifactoryTLSVerification = val.(bool)
 	}
 
-	if val, ok := data.GetOk("allow_scope_override"); ok {
-		config.AllowScopeOverride = val.(bool)
+	if _, ok := data.GetOk("allow_scope_override"); ok {
+		mode, err := parseScopeOverrideMode(data.Raw["allow_scope_override"])
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), err
+		}
+		config.AllowScopeOverride = mode
+	}
+
+	if _, ok := data.GetOk("default_allowed_scopes"); ok {
+		allowedScopes, err := parseAllowedScopes("default_allowed_scopes", data.Raw["default_allowed_scopes"])
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), err
+		}
+		config.DefaultAllowedScopes = allowedScopes
 	}
 
 	if val, ok := data.GetOk("revoke_on_delete"); ok {
@@ -268,7 +289,8 @@ func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, _ *f
 		"use_expiring_tokens":                 config.UseExpiringTokens,
 		"force_revocable":                     config.ForceRevocable,
 		"bypass_artifactory_tls_verification": config.BypassArtifactoryTLSVerification,
-		"allow_scope_override":                config.AllowScopeOverride,
+		"allow_scope_override":                config.scopeOverrideMode(),
+		"default_allowed_scopes":              config.effectiveDefaultAllowedScopes(),
 		"revoke_on_delete":                    config.RevokeOnDelete,
 	}
 

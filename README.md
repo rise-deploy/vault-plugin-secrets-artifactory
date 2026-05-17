@@ -276,8 +276,13 @@ vault write artifactory/config/admin \
 vault write artifactory/config/admin \
     url=https://artifactory.example.org \
     access_token=$TOKEN \
-    allow_scope_override=true
+    allow_scope_override=opt-in
 ```
+
+`allow_scope_override` accepts `disabled`, `global`, or `opt-in`. For backwards compatibility,
+`true` is treated as `global` and `false` is treated as `disabled`. When overrides are enabled
+and no custom allowlist is configured, the built-in default allowlist permits only
+`applied-permissions/groups:*` overrides.
 
 ## Usage
 
@@ -343,14 +348,16 @@ username           v-jenkins-x4mohTA8
 ### Scoped Access Tokens
 
 > [!IMPORTANT]
-> In order to use this functionality, you must enable `allow_scope_override` when configuring the plugin, see [Enable Scoped down Tokens](#Use-scoped-down-tokens)
+> In order to use this functionality, you must enable `allow_scope_override` when configuring the plugin, see [Enable Scoped down Tokens](#enable-scoped-down-tokens)
 
 Create a role (scope for artifactory >= 7.21.1)
 
 ```sh
 vault write artifactory/roles/jenkins \
-    username="jenkins-vault"
+    username="jenkins-vault" \
     scope="applied-permissions/groups:admin" \
+    allow_scope_override=true \
+    allowed_scopes='["applied-permissions/groups:*"]' \
     default_ttl=1h max_ttl=3h
 ```
 
@@ -485,7 +492,8 @@ No renewals or new tokens will be issued if the backend configuration (config/ad
 * `force_revocable` (boolean) - Optional. When set to true, we will add the `force_revocable` flag to the token's extension. In addition, a new configuration has been added that sets the default for setting the `force_revocable` default when creating a new token - the default of this configuration will be `false` to ensure that the Circle of Trust remains in place.
 * `bypass_artifactory_tls_verification` (boolean) - Optional. Bypass certification verification for TLS connection with Artifactory. Default to `false`.
 * `revoke_on_delete` (boolean) - Optional. Revoke Administrator access token when this configuration is deleted. Default to `false`. Will be set to `true` if token is rotated.
-* `allow_scope_override` (boolean) - Optional. Determine if scoped tokens should be allowed. This is an advanced configuration option. Default to `false`.
+* `allow_scope_override` (string or boolean) - Optional. Determines if requested `scope` overrides are allowed. `disabled` or `false` denies overrides, `global` or `true` allows overrides for all roles and user-token configs, and `opt-in` requires the role or user-token config to set `allow_scope_override=true`. Default to `disabled`.
+* `default_allowed_scopes` (string) - Optional. JSON array of scope glob patterns used when a role or user-token config does not set `allowed_scopes`. Defaults to `["applied-permissions/groups:*"]`.
 
 #### Example
 
@@ -494,6 +502,8 @@ vault write artifactory/config/admin url=$JFROG_URL \
   access_token=$JFROG_ACCESS_TOKEN \
   username_template="v_{{.DisplayName}}_{{.RoleName}}_{{random 10}}_{{unix_time}}" \
   use_expiring_tokens=true \
+  allow_scope_override=opt-in \
+  default_allowed_scopes='["applied-permissions/groups:*"]' \
   bypass_artifactory_tls_verification=true \
   revoke_on_delete=true
 ```
@@ -520,6 +530,8 @@ Configures default values for the `user_token/:user-name` path. The optional `us
 * `force_revocable` (boolean) - Optional. When set to true, we will add the `force_revocable` flag to the token's extension. In addition, a new configuration has been added that sets the default for setting the `force_revocable` default when creating a new token - the default of this configuration will be `false` to ensure that the Circle of Trust remains in place.
 * `default_ttl` (int64) - Optional. Default TTL for issued user access tokens. If unset, uses the backend's `default_ttl`. Cannot exceed `max_ttl`.
 * `default_description` (string) - Optional. Default token description to set in Artifactory for issued user access tokens.
+* `allow_scope_override` (boolean) - Optional. Allows this user-token config to use requested `scope` overrides when `config/admin allow_scope_override=opt-in`. Ignored when the admin setting is `global`.
+* `allowed_scopes` (string) - Optional. JSON array of scope glob patterns allowed for requested `scope` overrides for this user-token config.
 
 #### Examples
 
@@ -562,12 +574,16 @@ vault delete artifactory/config/user_token/myuser
 * `include_reference_token` (boolean) - Optional. Generate a Reference Token (alias to Access Token) in addition to the full token (available from Artifactory 7.38.10). A reference token is a shorter, 64-character string, which can be used as a bearer token, a password, or with the `X-JFrog-Art-Api`header. Note: Using the reference token might have performance implications over a full length token. Defaults to `false`.
 * `default_ttl` (int64) - Default TTL for issued user access tokens. If unset, uses the backend's `default_ttl`. Cannot exceed `max_ttl`.
 * `max_ttl` (int64) - Maximum TTL that an access token can be renewed for. If unset, uses the backend's `max_ttl`. Cannot exceed backend's `max_ttl`.
+* `allow_scope_override` (boolean) - Optional. Allows this role to use requested `scope` overrides when `config/admin allow_scope_override=opt-in`. Ignored when the admin setting is `global`.
+* `allowed_scopes` (string) - Optional. JSON array of scope glob patterns allowed for requested `scope` overrides for this role.
 
 #### Examples
 
 ```console
 vault write artifactory/roles/test \
   scope="applied-permissions/groups:readers applied-permissions/groups:ci" \
+  allow_scope_override=true \
+  allowed_scopes='["applied-permissions/groups:*"]' \
   max_ttl=3h \
   default_ttl=2h
 
@@ -588,7 +604,7 @@ Create an Artifactory access token using parameters from the specified role.
 
 * `ttl` (int64) - Optional. Override the default TTL when issuing this access token. Cannot exceed smallest (system, backend, role, this request) maximum TTL.
 * `max_ttl` (int64) - Optional. Override the maximum TTL for this access token. Cannot exceed smallest (system, backend) maximum TTL.
-* `scope` (string) - Optional. Override the scope for this access token. Limited to group scope only: `applied-permissions/groups:<group-name>[,<group-name>...]`. Only applicable when config field `allow_scope_override` is set to `true`.
+* `scope` (string) - Optional. Override the scope for this access token. Only allowed when `config/admin allow_scope_override` permits overrides and the requested scope matches the effective allowlist.
 
 #### Examples
 
@@ -630,7 +646,20 @@ Provides optional parameters to override default values for the user_token/:user
 * `force_revocable` (boolean) - Optional. When set to true, we will add the `force_revocable` flag to the token's extension. In addition, a new configuration has been added that sets the default for setting the `force_revocable` default when creating a new token - the default of this configuration will be `false` to ensure that the Circle of Trust remains in place.
 * `ttl` (int64) - Optional. Override the default TTL when issuing this access token. Cannot exceed smallest (system, backend, role, this request) maximum TTL.
 * `max_ttl` (int64) - Optional. Override the maximum TTL for this access token. Cannot exceed smallest (system, backend) maximum TTL.
-* `scope` (string) - Optional. Override the scope (default: `applied-permissions/user`) for this access token. Limited to group scope only: `applied-permissions/groups:<group-name>[,<group-name>...]`.
+* `scope` (string) - Optional. Override the scope (default: `applied-permissions/user`) for this access token. Only allowed when `config/admin allow_scope_override` permits overrides and the requested scope matches the effective allowlist.
+
+### Scope Override Allowlists
+
+Requested `scope` values are split on whitespace and every scope entry must match one allowed pattern. Role or user-token `allowed_scopes` take precedence when set; otherwise `config/admin default_allowed_scopes` is used.
+
+Allowed scope patterns match the raw JFrog scope text:
+
+* `*` matches zero or more characters except `/` and `:`.
+* `**` matches zero or more characters except `:`.
+* `+` behaves like `*` and also refuses to match literal `*` characters.
+* `++` behaves like `**` and also refuses to match literal `*` characters.
+
+For example, `artifact:**` does not match `artifact:repo/path:r,w`; use `artifact:**:r,w` when the action suffix should be allowed. `artifact:repo/path/++:r,w` allows deeper paths below `artifact:repo/path/`, but does not allow callers to request literal JFrog wildcards such as `artifact:repo/path/*:r,w` or `artifact:repo/path/**:r,w`.
 
 #### Examples
 
