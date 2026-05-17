@@ -201,7 +201,7 @@ func (b *backend) pathRoleWrite(ctx context.Context, req *logical.Request, data 
 	}
 
 	if _, ok := data.GetOk("allowed_scopes"); ok {
-		allowedScopes, err := parseAllowedScopes(data.Raw["allowed_scopes"])
+		allowedScopes, err := parseAllowedScopes("allowed_scopes", data.Raw["allowed_scopes"])
 		if err != nil {
 			return logical.ErrorResponse(err.Error()), err
 		}

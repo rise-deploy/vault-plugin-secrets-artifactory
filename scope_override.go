@@ -84,7 +84,7 @@ func (m *scopeOverrideMode) UnmarshalJSON(data []byte) error {
 	return errors.New("allow_scope_override must be a boolean or string")
 }
 
-func parseAllowedScopes(raw interface{}) ([]string, error) {
+func parseAllowedScopes(fieldName string, raw interface{}) ([]string, error) {
 	switch v := raw.(type) {
 	case nil:
 		return nil, nil
@@ -94,7 +94,7 @@ func parseAllowedScopes(raw interface{}) ([]string, error) {
 		}
 		var scopes []string
 		if err := json.Unmarshal([]byte(v), &scopes); err != nil {
-			return nil, fmt.Errorf("allowed_scopes must be a JSON array of strings: %w", err)
+			return nil, fmt.Errorf("%s must be a JSON array of strings: %w", fieldName, err)
 		}
 		return scopes, nil
 	case []string:
@@ -104,13 +104,13 @@ func parseAllowedScopes(raw interface{}) ([]string, error) {
 		for _, rawScope := range v {
 			scope, ok := rawScope.(string)
 			if !ok {
-				return nil, fmt.Errorf("allowed_scopes entries must be strings, got %T", rawScope)
+				return nil, fmt.Errorf("%s entries must be strings, got %T", fieldName, rawScope)
 			}
 			scopes = append(scopes, scope)
 		}
 		return scopes, nil
 	default:
-		return nil, fmt.Errorf("allowed_scopes must be a JSON array of strings, got %T", raw)
+		return nil, fmt.Errorf("%s must be a JSON array of strings, got %T", fieldName, raw)
 	}
 }
 
@@ -134,7 +134,7 @@ func validateScopeOverride(scope string, allowedScopes []string) error {
 		return errors.New("provided scope is invalid")
 	}
 	if len(allowedScopes) == 0 {
-		return errors.New("no allowed scopes configured")
+		return errors.New("scope override denied by allowlist policy")
 	}
 
 	for _, scopeEntry := range scopeEntries {

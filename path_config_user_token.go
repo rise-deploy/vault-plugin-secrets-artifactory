@@ -271,7 +271,7 @@ func (b *backend) pathConfigUserTokenUpdate(ctx context.Context, req *logical.Re
 	}
 
 	if _, ok := data.GetOk("allowed_scopes"); ok {
-		allowedScopes, err := parseAllowedScopes(data.Raw["allowed_scopes"])
+		allowedScopes, err := parseAllowedScopes("allowed_scopes", data.Raw["allowed_scopes"])
 		if err != nil {
 			return logical.ErrorResponse(err.Error()), err
 		}

@@ -189,7 +189,7 @@ func (b *backend) pathConfigUpdate(ctx context.Context, req *logical.Request, da
 	}
 
 	if _, ok := data.GetOk("default_allowed_scopes"); ok {
-		allowedScopes, err := parseAllowedScopes(data.Raw["default_allowed_scopes"])
+		allowedScopes, err := parseAllowedScopes("default_allowed_scopes", data.Raw["default_allowed_scopes"])
 		if err != nil {
 			return logical.ErrorResponse(err.Error()), err
 		}

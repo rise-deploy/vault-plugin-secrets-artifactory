@@ -348,7 +348,7 @@ username           v-jenkins-x4mohTA8
 ### Scoped Access Tokens
 
 > [!IMPORTANT]
-> In order to use this functionality, you must enable `allow_scope_override` when configuring the plugin, see [Enable Scoped down Tokens](#Use-scoped-down-tokens)
+> In order to use this functionality, you must enable `allow_scope_override` when configuring the plugin, see [Enable Scoped down Tokens](#enable-scoped-down-tokens)
 
 Create a role (scope for artifactory >= 7.21.1)
 
