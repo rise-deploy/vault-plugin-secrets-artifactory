@@ -43,13 +43,23 @@ func parseScopeOverrideMode(raw interface{}) (scopeOverrideMode, error) {
 	}
 }
 
+// MarshalJSON writes disabled/global as JSON booleans (false/true) to preserve
+// rollback compatibility with older plugin versions that stored allow_scope_override
+// as a bool. opt-in is a new capability and is written as a string; rolling back
+// after configuring opt-in requires manual storage repair.
 func (m scopeOverrideMode) MarshalJSON() ([]byte, error) {
-	if m == "" {
-		m = scopeOverrideDisabled
+	switch m {
+	case scopeOverrideGlobal:
+		return json.Marshal(true)
+	case scopeOverrideDisabled, "":
+		return json.Marshal(false)
+	default: // scopeOverrideOptIn and any future modes
+		return json.Marshal(string(m))
 	}
-	return json.Marshal(string(m))
 }
 
+// UnmarshalJSON accepts both the legacy boolean storage format and the current
+// string format so that config written by older plugin versions decodes correctly.
 func (m *scopeOverrideMode) UnmarshalJSON(data []byte) error {
 	var boolValue bool
 	if err := json.Unmarshal(data, &boolValue); err == nil {

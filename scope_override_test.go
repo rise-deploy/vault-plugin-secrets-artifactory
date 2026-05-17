@@ -417,3 +417,47 @@ func TestBackend_ScopeOverridePolicyForUserTokens(t *testing.T) {
 		})
 	}
 }
+
+// TestScopeOverrideMode_RollbackCompatibility verifies that disabled and global
+// marshal to JSON booleans so that an older plugin version storing allow_scope_override
+// as a bool field can still decode config written by this version.
+func TestScopeOverrideMode_RollbackCompatibility(t *testing.T) {
+	type legacyConfig struct {
+		AllowScopeOverride bool `json:"allow_scope_override,omitempty"`
+	}
+
+	for _, tt := range []struct {
+		mode    scopeOverrideMode
+		wantOld bool
+	}{
+		{scopeOverrideDisabled, false},
+		{scopeOverrideGlobal, true},
+	} {
+		t.Run(string(tt.mode), func(t *testing.T) {
+			// Simulate new plugin writing config to storage.
+			type newConfig struct {
+				AllowScopeOverride scopeOverrideMode `json:"allow_scope_override,omitempty"`
+			}
+			data, err := json.Marshal(newConfig{AllowScopeOverride: tt.mode})
+			require.NoError(t, err)
+
+			// Simulate old plugin reading that config back.
+			var old legacyConfig
+			require.NoError(t, json.Unmarshal(data, &old), "old plugin must be able to decode config written by new plugin")
+			assert.Equal(t, tt.wantOld, old.AllowScopeOverride)
+		})
+	}
+
+	// opt-in cannot be decoded by the old bool field; rolling back after
+	// configuring opt-in requires manual storage repair.
+	t.Run("opt-in is not rollback-safe", func(t *testing.T) {
+		type newConfig struct {
+			AllowScopeOverride scopeOverrideMode `json:"allow_scope_override,omitempty"`
+		}
+		data, err := json.Marshal(newConfig{AllowScopeOverride: scopeOverrideOptIn})
+		require.NoError(t, err)
+
+		var old legacyConfig
+		assert.Error(t, json.Unmarshal(data, &old), "opt-in cannot be decoded by old bool field")
+	})
+}
