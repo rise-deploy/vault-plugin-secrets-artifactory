@@ -260,6 +260,34 @@ func TestBackend_ScopeOverridePolicyForRoleTokens(t *testing.T) {
 			scope:       "applied-permissions/groups:test",
 			wantAllowed: false,
 		},
+		{
+			name: "role opt-in with no allowlist rejects scope outside global default",
+			adminData: map[string]interface{}{
+				"access_token":         "test-access-token",
+				"url":                  "http://myserver.com:80",
+				"allow_scope_override": "opt-in",
+			},
+			roleData: map[string]interface{}{
+				"allow_scope_override": true,
+			},
+			scope:       "artifact:repo/path:r,w",
+			wantAllowed: false,
+		},
+		{
+			// allowed_scopes=[] is an explicit deny-all; must not fall back to the
+			// global default allowlist (which would permit groups:*).
+			name: "role empty allowlist is explicit deny-all, not fallback to default",
+			adminData: map[string]interface{}{
+				"access_token":         "test-access-token",
+				"url":                  "http://myserver.com:80",
+				"allow_scope_override": "global",
+			},
+			roleData: map[string]interface{}{
+				"allowed_scopes": `[]`,
+			},
+			scope:       "applied-permissions/groups:test",
+			wantAllowed: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -356,6 +384,32 @@ func TestBackend_ScopeOverridePolicyForUserTokens(t *testing.T) {
 			wantAllowed: false,
 		},
 		{
+			name: "user config opt-in with no allowlist falls back to global default",
+			adminData: map[string]interface{}{
+				"access_token":         "test-access-token",
+				"url":                  "http://myserver.com:80",
+				"allow_scope_override": "opt-in",
+			},
+			userConfigData: map[string]interface{}{
+				"allow_scope_override": true,
+			},
+			scope:       "applied-permissions/groups:test",
+			wantAllowed: true,
+		},
+		{
+			name: "user config opt-in with no allowlist rejects scope outside global default",
+			adminData: map[string]interface{}{
+				"access_token":         "test-access-token",
+				"url":                  "http://myserver.com:80",
+				"allow_scope_override": "opt-in",
+			},
+			userConfigData: map[string]interface{}{
+				"allow_scope_override": true,
+			},
+			scope:       "artifact:repo/path:r,w",
+			wantAllowed: false,
+		},
+		{
 			name: "opt-in allows user config opt-in with artifact allowlist",
 			adminData: map[string]interface{}{
 				"access_token":         "test-access-token",
@@ -368,6 +422,21 @@ func TestBackend_ScopeOverridePolicyForUserTokens(t *testing.T) {
 			},
 			scope:       "artifact:repo/path:r,w",
 			wantAllowed: true,
+		},
+		{
+			// allowed_scopes=[] is an explicit deny-all; must not fall back to the
+			// global default allowlist (which would permit groups:*).
+			name: "user config empty allowlist is explicit deny-all, not fallback to default",
+			adminData: map[string]interface{}{
+				"access_token":         "test-access-token",
+				"url":                  "http://myserver.com:80",
+				"allow_scope_override": "global",
+			},
+			userConfigData: map[string]interface{}{
+				"allowed_scopes": `[]`,
+			},
+			scope:       "applied-permissions/groups:test",
+			wantAllowed: false,
 		},
 	}
 

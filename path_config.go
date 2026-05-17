@@ -105,7 +105,7 @@ type adminConfiguration struct {
 	UsernameTemplate                 string            `json:"username_template,omitempty"`
 	BypassArtifactoryTLSVerification bool              `json:"bypass_artifactory_tls_verification,omitempty"`
 	AllowScopeOverride               scopeOverrideMode `json:"allow_scope_override,omitempty"`
-	DefaultAllowedScopes             []string          `json:"default_allowed_scopes,omitempty"`
+	DefaultAllowedScopes             []string          `json:"default_allowed_scopes"`
 	RevokeOnDelete                   bool              `json:"revoke_on_delete,omitempty"`
 }
 

@@ -110,7 +110,7 @@ type artifactoryRole struct {
 	DefaultTTL            time.Duration `json:"default_ttl,omitempty"`
 	MaxTTL                time.Duration `json:"max_ttl,omitempty"`
 	AllowScopeOverride    bool          `json:"allow_scope_override,omitempty"`
-	AllowedScopes         []string      `json:"allowed_scopes,omitempty"`
+	AllowedScopes         []string      `json:"allowed_scopes"`
 	RefreshToken          string        `json:"-"`
 	ExpiresIn             time.Duration `json:"-"`
 }

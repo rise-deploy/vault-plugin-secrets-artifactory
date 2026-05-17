@@ -101,7 +101,7 @@ type userTokenConfiguration struct {
 	MaxTTL                time.Duration `json:"max_ttl,omitempty"`
 	DefaultDescription    string        `json:"default_description,omitempty"`
 	AllowScopeOverride    bool          `json:"allow_scope_override,omitempty"`
-	AllowedScopes         []string      `json:"allowed_scopes,omitempty"`
+	AllowedScopes         []string      `json:"allowed_scopes"`
 }
 
 func (c *userTokenConfiguration) RefreshAccessToken(ctx context.Context, req *logical.Request, username string, b *backend, adminBaseConfig baseConfiguration) error {
